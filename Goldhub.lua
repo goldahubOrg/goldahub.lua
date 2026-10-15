@@ -417,6 +417,7 @@ end
 
 local movementPage = addTab("Movement", 1)
 local teleportPage = addTab("Teleport", 2)
+local visualsPage = addTab("Visuals", 3)
 
 local noclipConn
 
@@ -488,6 +489,106 @@ local function startFly()
 	return true
 end
 
+local veritySwitch
+local verityBall
+local verityOriginals = {}
+
+local function clearVerity()
+	if verityBall then
+		verityBall:Destroy()
+		verityBall = nil
+	end
+	for obj, value in pairs(verityOriginals) do
+		if obj.Parent then
+			obj.Transparency = value
+		end
+	end
+	verityOriginals = {}
+end
+
+local function startVerity()
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return false end
+
+	clearVerity()
+
+	for _, obj in ipairs(char:GetDescendants()) do
+		if obj:IsA("BasePart") and obj ~= root then
+			verityOriginals[obj] = obj.Transparency
+			obj.Transparency = 1
+		elseif obj:IsA("Decal") or obj:IsA("Texture") then
+			verityOriginals[obj] = obj.Transparency
+			obj.Transparency = 1
+		end
+	end
+
+	verityBall = new("Part", {
+		Name = "GoldHubVerity",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(5, 5, 5),
+		Color = Color3.fromRGB(255, 214, 0),
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+		CanTouch = false,
+		CanQuery = false,
+		Massless = true,
+		CFrame = root.CFrame * CFrame.new(0, -0.5, 0),
+	}, char)
+
+	new("WeldConstraint", { Part0 = root, Part1 = verityBall }, verityBall)
+
+	local face = new("SurfaceGui", {
+		Face = Enum.NormalId.Front,
+		SizingMode = Enum.SurfaceGuiSizingMode.FixedSize,
+		CanvasSize = Vector2.new(300, 300),
+		LightInfluence = 0,
+	}, verityBall)
+
+	local ink = Color3.fromRGB(20, 15, 5)
+
+	for _, x in ipairs({ 112, 188 }) do
+		local eye = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(x, 88),
+			Size = UDim2.fromOffset(22, 38),
+			BackgroundColor3 = ink,
+			BorderSizePixel = 0,
+		}, face)
+		new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, eye)
+	end
+
+	local segments = 32
+	local cx, cy, radius = 150, 112, 84
+	local startAngle, endAngle = math.rad(22), math.rad(158)
+	local prev
+
+	for i = 0, segments do
+		local a = startAngle + (endAngle - startAngle) * (i / segments)
+		local point = Vector2.new(cx + radius * math.cos(a), cy + radius * math.sin(a))
+
+		if prev then
+			local delta = point - prev
+			local mid = (point + prev) / 2
+			local thickness = 3 + 8 * math.sin(math.pi * (i - 0.5) / segments)
+
+			local seg = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromOffset(mid.X, mid.Y),
+				Size = UDim2.fromOffset(delta.Magnitude + 2, thickness),
+				Rotation = math.deg(math.atan2(delta.Y, delta.X)),
+				BackgroundColor3 = ink,
+				BorderSizePixel = 0,
+			}, face)
+			new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, seg)
+		end
+
+		prev = point
+	end
+
+	return true
+end
+
 makeRow(movementPage, 1, "Noclip", "ебаный ноуклип", setNoclip)
 
 flySwitch = makeRow(movementPage, 2, "Fly", "Ну это бля палет", function(on)
@@ -501,6 +602,13 @@ local clickTp = false
 
 makeRow(teleportPage, 1, "Click TP", "какой далбаеб это не знает", function(on)
 	clickTp = on
+end)
+
+veritySwitch = makeRow(visualsPage, 1, "Verity", "Веня пидрас", function(on)
+	if on then
+		return startVerity()
+	end
+	clearVerity()
 end)
 
 selectTab("Movement")
@@ -536,4 +644,6 @@ end)
 
 player.CharacterAdded:Connect(function()
 	stopFly()
+	clearVerity()
+	if veritySwitch then veritySwitch.set(false) end
 end)
